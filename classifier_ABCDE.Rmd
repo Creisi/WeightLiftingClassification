@@ -23,8 +23,8 @@ train_raw <- read.csv(train_file, na.strings=c("NA", "", "#DIV/0!"))
 test_raw <- read.csv(test_file, na.strings=c("NA", "", "#DIV/0!"))
 ```
 
-What is missing:
-```{r}
+What is missing(not evaluated, to reduce size of the document):
+```{r eval=FALSE}
 missmap(train_raw)
 ```
 
