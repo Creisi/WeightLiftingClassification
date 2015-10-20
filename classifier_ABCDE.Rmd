@@ -1,0 +1,105 @@
+# Exploratory Analysis
+
+```{r, echo=FALSE}
+library(Amelia)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(doMC)
+
+registerDoMC(cores = 8)
+```
+
+## Lets read raw data
+
+```{r read_files}
+train_file <- "pml-training.csv"
+test_file <- "pml-testing.csv"
+
+train_raw <- read.csv(train_file, na.strings=c("NA", "", "#DIV/0!"))
+test_raw <- read.csv(test_file, na.strings=c("NA", "", "#DIV/0!"))
+```
+
+What is missing:
+```{r}
+missmap(train_raw)
+```
+
+#Data Cleaning
+
+We need to remove features with many NAs.
+
+```{r cleaning_data}
+all_features <- names(train_raw)
+num_train_cases <- nrow(train_raw)
+
+mostly_na_features <- sapply(all_features, function(x) {
+    sum(is.na(train_raw[, x])) > num_train_cases*0.9
+})
+
+non_na_features <- all_features[ ! mostly_na_features]
+features <- setdiff(non_na_features, c("X", "classe"))
+
+train_no_na <- train_raw[ , c(features, "classe")]
+test_no_na <- test_raw[ , c(features, "problem_id")]
+dim(train_no_na)
+dim(test_no_na)
+```
+
+# Model Building
+
+Lets split data into test(to estimate out of sample error) and training dataset.
+
+```{r model}
+in_train <- createDataPartition(train_no_na$classe, p=0.7, list=FALSE) 
+train_set <- train_no_na[in_train, ]
+out_of_sample <- train_no_na[-in_train, ]
+```
+
+Lets start with simple random forest:
+```{r out_of_sample_error}
+control <- trainControl("repeatedcv", repeats=3)
+rf_model <- train(classe ~ ., data=train_set, method="rf",
+    trControl=control)
+```
+
+## Feature Importance
+```{r}
+plot(varImp(rf_model))
+```
+
+
+# Out of Sample Error
+
+Lets estimate error on unseen examples, but for the cases when we know truth:
+
+```{r unseen_prediction}
+out_of_sample_prediction <- predict(rf_model, newdata=out_of_sample)
+confusionMatrix(data=out_of_sample_prediction, out_of_sample$classe)
+```
+
+So the model that we build is highly accurate > 98%.
+
+# Prediction
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+prediction <- predict(rf_model, newdata=test_no_na)
+pml_write_files(prediction)
+```
+
+
+
+
+
+
+
+
+
